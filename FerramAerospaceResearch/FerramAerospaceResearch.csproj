@@ -341,6 +341,10 @@
     <Compile Include="FARGUI\ExposureDebugger.cs" />
     <Compile Include="FARGUI\FAREditorGUI\DesignConcerns\AreaRulingConcern.cs" />
     <Compile Include="FARGUI\FAREditorGUI\DesignConcerns\AeroStabilityConcern.cs" />
+    <Compile Include="FARGUI\FAREditorGUI\DumpAnalysis.cs" />
+    <Compile Include="FARGUI\FAREditorGUI\Simulation\DumpSim.cs" />
+    <Compile Include="FARGUI\FAREditorGUI\Simulation\DumpSimInput.cs" />
+    <Compile Include="FARGUI\FAREditorGUI\Simulation\DumpSimOutput.cs" />
     <Compile Include="FARGUI\FARFlightGUI\AeroVisualizationGUI.cs" />
     <Compile Include="FARGUI\FARFlightGUI\AirspeedSettingsGUI.cs" />
     <Compile Include="FARGUI\FARFlightGUI\DebugGUI.cs" />

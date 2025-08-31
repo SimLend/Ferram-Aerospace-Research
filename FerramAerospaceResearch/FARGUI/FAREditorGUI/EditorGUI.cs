@@ -72,6 +72,7 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
 
         private static readonly string[] FAReditorMode_str =
         {
+            Localizer.Format("FAREditorModeDump"),
             Localizer.Format("FAREditorModeStatic"),
             Localizer.Format("FAREditorModeDataStab"),
             Localizer.Format("FAREditorModeDerivSim"),
@@ -95,12 +96,12 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
         private int prevPartCount;
         private bool partMovement;
 
-        private EditorSimManager _simManager;
-
-        private InstantConditionSim _instantSim;
-        private EditorAreaRulingOverlay _areaRulingOverlay;
-        private StaticAnalysisGraphGUI _editorGraph;
-        private StabilityDerivGUI _stabDeriv;
+        private EditorSimManager            _simManager;
+        private InstantConditionSim         _instantSim;
+        private EditorAreaRulingOverlay     _areaRulingOverlay;
+        private StaticAnalysisGraphGUI      _editorGraph;
+        private DumpAnalysisGUI             _dumpStudy;
+        private StabilityDerivGUI           _stabDeriv;
         private StabilityDerivSimulationGUI _stabDerivLinSim;
 
         private MethodInfo editorReportUpdate;
@@ -157,16 +158,17 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
             modeDropdown = new GUIDropDown<FAREditorMode>(FAReditorMode_str,
                                                           new[]
                                                           {
+                                                              FAREditorMode.DUMP,
                                                               FAREditorMode.STATIC,
                                                               FAREditorMode.STABILITY,
                                                               FAREditorMode.SIMULATION,
                                                               FAREditorMode.AREA_RULING
                                                           });
 
-            _simManager = new EditorSimManager(_instantSim);
-
-            _editorGraph = new StaticAnalysisGraphGUI(_simManager, flapSettingDropDown, celestialBodyDropdown);
-            _stabDeriv = new StabilityDerivGUI(_simManager, flapSettingDropDown, celestialBodyDropdown);
+            _simManager      = new EditorSimManager(_instantSim);
+            _editorGraph     = new StaticAnalysisGraphGUI(_simManager, flapSettingDropDown, celestialBodyDropdown);
+            _dumpStudy       = new DumpAnalysisGUI(_simManager, flapSettingDropDown, celestialBodyDropdown);
+            _stabDeriv       = new StabilityDerivGUI(_simManager, flapSettingDropDown, celestialBodyDropdown);
             _stabDerivLinSim = new StabilityDerivSimulationGUI(_simManager);
 
             Color crossSection = FARConfig.GUIColors.LdColor;
@@ -240,6 +242,7 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
             _areaRulingOverlay.Cleanup();
             _areaRulingOverlay = null;
             _editorGraph = null;
+            _dumpStudy = null;
             _stabDeriv = null;
 
             _vehicleAero?.ForceCleanup();
@@ -549,6 +552,10 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
             GUILayout.EndHorizontal();
             switch (currentMode)
             {
+                case FAREditorMode.DUMP:
+                    _dumpStudy.Display();
+                    guiRect.height = useKSPSkin ? 570 : 450;
+                    break;
                 case FAREditorMode.STATIC:
                     _editorGraph.Display();
                     guiRect.height = useKSPSkin ? 570 : 450;
@@ -780,6 +787,7 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
 
         private enum FAREditorMode
         {
+            DUMP,
             STATIC,
             STABILITY,
             SIMULATION,
