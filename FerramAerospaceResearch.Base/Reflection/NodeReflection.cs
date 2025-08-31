@@ -368,7 +368,7 @@ namespace FerramAerospaceResearch.Reflection
         public int Save(INodeSaver saver, object instance)
         {
             var save = new NodeReader { Saver = saver };
-            var node = instance as IConfigNode;
+            var node = instance as FerramAerospaceResearch.Interfaces.IConfigNode;
 
             if (node is null)
                 FindSpecialMethod(ValueType, "BeforeSaved")?.Invoke(null, null);
@@ -387,7 +387,7 @@ namespace FerramAerospaceResearch.Reflection
         public int Load(INodeLoader loader, ref object instance)
         {
             var load = new NodeLoader { Loader = loader };
-            var node = instance as IConfigNode;
+            var node = instance as FerramAerospaceResearch.Interfaces.IConfigNode;
 
             if (node is null)
                 FindSpecialMethod(ValueType, "BeforeLoaded")?.Invoke(null, null);

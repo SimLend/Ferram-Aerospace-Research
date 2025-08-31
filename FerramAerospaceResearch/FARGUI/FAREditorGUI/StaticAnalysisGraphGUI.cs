@@ -87,7 +87,7 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
                 numPts = "100",
                 flapSetting = 0,
                 pitchSetting = "0",
-                otherInput = "0.2"
+                otherInput = "0.5"
             };
 
             //Set up defaults for Mach Sweep
