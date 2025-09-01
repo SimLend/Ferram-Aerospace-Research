@@ -46,6 +46,7 @@ using System;
 using System.Collections.Generic;
 using ferram4;
 using FerramAerospaceResearch.FARAeroComponents;
+using LibNoise.Models;
 using UnityEngine;
 
 namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
@@ -91,6 +92,160 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
             accel = mu / accel;
             return accel;
         }
+
+
+        public void computeBodyCoefficients(     DumpSimInput  input,
+                                            ref  DumpSimOutput output,
+                                                 bool          clear,
+                                                 bool          reset_stall = false)
+        {
+            double area = 0;
+            double MAC = 0;
+            double b_2 = 0;
+
+            Vector3d forwardBody = Vector3.forward;
+            Vector3d downBody    = Vector3.down;
+            Vector3d rightBody   = Vector3.right;
+            Vector3d CoM         = Vector3d.zero;
+
+            if (EditorDriver.editorFacility == EditorFacility.VAB)
+            {
+                forwardBody = Vector3.up;
+                downBody    = Vector3.forward;
+            }
+
+            double mass = 0;
+            List<Part> partsList = EditorLogic.SortedShipList;
+            foreach (Part p in partsList)
+            {
+                if (FARAeroUtil.IsNonphysical(p))
+                    continue;
+
+                double partMass = p.mass;
+                if (p.Resources.Count > 0)
+                    partMass += p.GetResourceMass();
+
+                // If you want to use GetModuleMass, you need to start from p.partInfo.mass, not p.mass
+                CoM += partMass * (Vector3d)p.transform.TransformPoint(p.CoMOffset);
+                mass += partMass;
+            }
+
+            CoM /= mass;
+
+            // Rodhern: The original reference directions (velocity, liftVector, sideways) did not form an orthonormal
+            //  basis. That in turn produced some counterintuitive calculation results, such as coupled yaw and pitch
+            //  derivatives. A more thorough discussion of the topic can be found on the KSP forums:
+            //  https://forum.kerbalspaceprogram.com/index.php?/topic/19321-131-ferram-aerospace-research-v01591-liepmann-4218/&do=findComment&comment=2781270
+            //  The reference directions have been replaced by new ones that are orthonormal by construction.
+            //  In dkavolis branch Vector3.Cross() and Vector3d.Normalize() are used explicitly. There is no apparent
+            //  benefit to this other than possibly improved readability.
+            float cosAlpha = (float)Math.Cos(input.alpha * Math.PI / 180);
+            float sinAlpha = (float)Math.Sin(input.alpha * Math.PI / 180);
+
+            float cosBeta = (float)Math.Cos(input.beta * Math.PI / 180);
+            float sinBeta = (float)Math.Sin(input.beta * Math.PI / 180);
+
+            Matrix4x4 RotationAoA = new Matrix4x4(new Vector4(1.0f,  0.0f,     0.0f,     0.0f),
+                                                  new Vector4(0.0f,  cosAlpha, sinAlpha, 0.0f),
+                                                  new Vector4(0.0f, -sinAlpha, cosAlpha, 0.0f),
+                                                  new Vector4(0.0f,  0.0f,     0.0f,     1.0f));
+
+            Matrix4x4 RotationBeta = new Matrix4x4(new Vector4(cosBeta,  0.0f, sinBeta, 0.0f),
+                                                   new Vector4(0.0f,     1.0f, 0.0f,    0.0f),
+                                                   new Vector4(-sinBeta, 0.0f, cosBeta, 0.0f),
+                                                   new Vector4(0.0f,     0.0f, 0.0f,    1.0f));
+
+            Matrix4x4 RBodyToWind = RotationBeta * RotationAoA;
+
+            Vector3d forwardWind = RBodyToWind.MultiplyVector(forwardBody);
+            Vector3d downWind    = RBodyToWind.MultiplyVector(downBody);
+            Vector3d rightWind   = RBodyToWind.MultiplyVector(rightBody);
+
+            Vector3d velocityVector  = forwardWind;
+            Vector3d angularVelocity = new Vector3d(0.0f, 0.0f, 0.0f); // TODO : implement a non null angular velocity
+
+            foreach (FARWingAerodynamicModel w in _wingAerodynamicModel)
+            {
+                if (!(w && w.part))
+                    continue;
+
+                w.ComputeForceEditor(velocityVector, input.machNumber, 2);
+
+                if (clear)
+                    w.EditorClClear(reset_stall);
+
+                Vector3d relPos = w.GetAerodynamicCenter() - CoM;
+                Vector3d partVelocity = velocityVector + Vector3d.Cross(angularVelocity, relPos);
+
+                if (w is FARControllableSurface controllableSurface)
+                    controllableSurface.SetControlStateEditor(CoM,
+                                                              partVelocity,
+                                                              (float)input.pitchValue,
+                                                              (float)input.yawValue,
+                                                              (float)input.rollValue,
+                                                              input.flaps,
+                                                              input.spoilers);
+                else if (w.isShielded)
+                    continue;
+
+                Vector3d force = w.ComputeForceEditor(partVelocity.normalized, input.machNumber, 2) * 1000;
+
+                output.Cn += Vector3d.Dot(force, downBody);
+                output.Cy += Vector3d.Dot(force, rightBody);
+                output.Ca += Vector3d.Dot(force, forwardBody);
+
+                Vector3d moment = -Vector3d.Cross(relPos, force); // - sign for left to right handed conversion
+
+                output.Cmy += Vector3d.Dot(moment, rightBody);
+                output.Cmz += Vector3d.Dot(moment, downBody);
+                output.Cmx += Vector3d.Dot(moment, forwardBody);
+
+                area += w.S;
+                MAC += w.GetMAC() * w.S;
+                b_2 += w.Getb_2() * w.S;
+            }
+
+            var center = new FARCenterQuery();
+            foreach (FARAeroSection aeroSection in _currentAeroSections)
+                aeroSection.PredictionCalculateAeroForces(2,
+                                                          (float)input.machNumber,
+                                                          10000,
+                                                          0,
+                                                          0.005f,
+                                                          velocityVector.normalized,
+                                                          center);
+
+            Vector3d centerForce = center.force * 1000;
+
+            output.Cn += Vector3d.Dot(centerForce, downBody);
+            output.Cy += Vector3d.Dot(centerForce, rightBody);
+            output.Ca += Vector3d.Dot(centerForce, forwardBody);
+
+            Vector3d centerMoment = -center.TorqueAt(CoM) * 1000;
+
+            output.Cmy += Vector3d.Dot(centerMoment, rightBody);
+            output.Cmz += Vector3d.Dot(centerMoment, downBody);
+            output.Cmx += Vector3d.Dot(centerMoment, forwardBody);
+
+            if (area.NearlyEqual(0))
+            {
+                area = _maxCrossSectionFromBody;
+                b_2 = 1;
+                MAC = _bodyLength;
+            }
+
+            double recipArea = 1 / area;
+
+            MAC *= recipArea;
+            b_2 *= recipArea;
+            output.Cn *= recipArea;
+            output.Cy *= recipArea;
+            output.Ca *= recipArea;
+            output.Cmy *= recipArea / MAC; // FIXME : Adim is fucked up at the moment
+            output.Cmz *= recipArea / MAC;
+            output.Cmx *= recipArea / MAC;
+        }
+
 
         public void GetClCdCmSteady(
             InstantConditionSimInput input,

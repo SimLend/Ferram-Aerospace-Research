@@ -193,6 +193,42 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
             NbPitch = GUILayout.TextField(NbPitch, GUILayout.ExpandWidth(true));
             GUILayout.EndHorizontal();
 
+            // Yaw panel
+            GUILayout.Label(Localizer.Format("FAREditorStaticYawSetting"), GUILayout.Width(300.0F),
+                                                                           GUILayout.Height(25.0F));
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphLowLim"), GUILayout.Width(50.0F),
+                                                                            GUILayout.Height(25.0F));
+            minYaw = GUILayout.TextField(minYaw, GUILayout.ExpandWidth(true));
+
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphUpLim"), GUILayout.Width(50.0F),
+                                                                           GUILayout.Height(25.0F));
+            maxYaw = GUILayout.TextField(maxYaw, GUILayout.ExpandWidth(true));
+
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphPtCount"), GUILayout.Width(70.0F),
+                                                                             GUILayout.Height(25.0F));
+            NbYaw = GUILayout.TextField(NbYaw, GUILayout.ExpandWidth(true));
+            GUILayout.EndHorizontal();
+
+            // Roll panel
+            GUILayout.Label(Localizer.Format("FAREditorStaticRollSetting"), GUILayout.Width(300.0F),
+                                                                            GUILayout.Height(25.0F));
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphLowLim"), GUILayout.Width(50.0F),
+                                                                            GUILayout.Height(25.0F));
+            minRoll = GUILayout.TextField(minRoll, GUILayout.ExpandWidth(true));
+
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphUpLim"), GUILayout.Width(50.0F),
+                                                                           GUILayout.Height(25.0F));
+            maxRoll = GUILayout.TextField(maxRoll, GUILayout.ExpandWidth(true));
+
+            GUILayout.Label(Localizer.Format("FAREditorStaticGraphPtCount"), GUILayout.Width(70.0F),
+                                                                             GUILayout.Height(25.0F));
+            NbRoll = GUILayout.TextField(NbRoll, GUILayout.ExpandWidth(true));
+            GUILayout.EndHorizontal();
+
             // Whether the moment coefficients should be written at the COG
             isAtCOG = GUILayout.Toggle(isAtCOG, Localizer.Format("FAREditorDumpDataAtCOG"));
 
@@ -222,19 +258,25 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
                 int    inbYaw  = sanitizeIntInput(ref NbYaw);
 
                 double fminRoll = sanitizeFloatInput(ref minRoll, -1,      1);
-                double fmaxRoll = sanitizeFloatInput(ref maxYaw, fminRoll, 1);
+                double fmaxRoll = sanitizeFloatInput(ref maxRoll, fminRoll, 1);
                 int    inbRoll  = sanitizeIntInput(ref NbRoll);
 
-                DumpSim sim = new DumpSim();
-                DumpSimInput simInput = new DumpSimInput(fminAlpha, fminBeta, 0.0, 0.0, 0.0, fminMach, fminPitch, fminYaw, fminRoll, 0, false);
-                DumpSimOutput simOutput = new DumpSimOutput();
-                sim.computeCoefficients(simInput, ref simOutput, false, false);
-                UnityEngine.Debug.LogWarning("AERODYNAMIC COEFFICIENTS : CA : " + simOutput.Ca.ToString() +
-                                                              "\n CN : " + simOutput.Cn.ToString() +
-                                                              "\n CY : " + simOutput.Cy.ToString() +
-                                                              "\n CMX : " + simOutput.Cmx.ToString() +
-                                                              "\n CMY : " + simOutput.Cmy.ToString() +
-                                                              "\n CMZ : " + simOutput.Cmz.ToString());
+                DumpSim      sim      = simManager.DumpSim;
+                //DumpSimInput simInput = new DumpSimInput(fminAlpha, fminBeta, 0.0, 0.0, 0.0, fminMach, fminPitch, fminYaw, fminRoll, 0, false);
+                //DumpSimOutput simOutput = new DumpSimOutput();
+                sim.dumpCoefficients(fminMach,  fmaxMach,  inbMach,
+                                     fminAlpha, fmaxAlpha, inbAlpha,
+                                     fminBeta,  fmaxBeta,  inbBeta,
+                                     fminPitch, fmaxPitch, inbPitch,
+                                     fminYaw,   fmaxYaw,   inbYaw,
+                                     fminRoll,  fmaxRoll,  inbRoll);
+
+                //UnityEngine.Debug.LogWarning("AERODYNAMIC COEFFICIENTS : CA : " + simOutput.Ca.ToString() +
+                //                                              "\n CN : " + simOutput.Cn.ToString() +
+                //                                              "\n CY : " + simOutput.Cy.ToString() +
+                //                                              "\n CMX : " + simOutput.Cmx.ToString() +
+                //                                              "\n CMY : " + simOutput.Cmy.ToString() +
+                //                                              "\n CMZ : " + simOutput.Cmz.ToString());
             }
             GUILayout.EndVertical();
         }
@@ -254,6 +296,11 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
             fValue = Math.Ceiling(fValue);
             input  = fValue.ToString(CultureInfo.InvariantCulture);
             return (int)fValue;
+        }
+
+        internal void arrowPlot(ArrowPointer velocityArrow)
+        {
+            simManager.DumpSim.arrowPlot(velocityArrow);
         }
 
 

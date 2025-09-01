@@ -677,6 +677,9 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI
         {
             switch (currentMode)
             {
+                case FAREditorMode.DUMP:
+                    _dumpStudy.arrowPlot(velocityArrow);
+                    break;
                 case FAREditorMode.STATIC:
                     _editorGraph.ArrowAnim(velocityArrow);
                     break;

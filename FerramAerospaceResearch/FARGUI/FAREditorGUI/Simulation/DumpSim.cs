@@ -47,11 +47,19 @@ using System.Collections.Generic;
 using ferram4;
 using FerramAerospaceResearch.FARAeroComponents;
 using UnityEngine;
+using static GameEvents;
 
 namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
 {
     internal class DumpSim
     {
+        private readonly InstantConditionSim _instantCondition;
+
+        public DumpSim(InstantConditionSim instantConditionSim)
+        {
+            _instantCondition = instantConditionSim;
+        }
+
         private readonly DumpSimInput iterationInput = new DumpSimInput();
         private List<FARAeroSection> _currentAeroSections;
         private List<FARAeroPartModule> _currentAeroModules;
@@ -62,6 +70,10 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
 
         private double neededCl;
         public InstantConditionSimOutput iterationOutput;
+
+        private double alpha;
+        private double beta;
+
 
         public bool Ready
         {
@@ -92,184 +104,52 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
             return accel;
         }
 
-        public void computeCoefficients(
-            DumpSimInput input,
-            ref DumpSimOutput output,
-            bool clear,
-            bool reset_stall = false
-        )
+        public void dumpCoefficients(double machMin,  double machMax,  int nbMach,
+                                     double alphaMin, double alphaMax, int nbAlpha,
+                                     double betaMin,  double betaMax,  int nbBeta,
+                                     double pitchMin, double pitchMax, int nbPitch,
+                                     double yawMin,   double yawMax,   int nbYaw,
+                                     double rollMin,  double rollMax,  int nbRoll)
         {
-            double area = 0;
-            double MAC  = 0;
-            double b_2  = 0;
+            alpha = alphaMin;
+            beta = betaMin;
 
-            Vector3d forwardBody = Vector3.forward;
-            Vector3d upBody      = Vector3.up;
-            Vector3d rightBody   = Vector3.right;
 
-            Vector3d CoM     = Vector3d.zero;
+            DumpSimInput  simInput  = new DumpSimInput(alphaMin, betaMin, 0.0, 0.0, 0.0, machMin, pitchMin, yawMin, rollMin, 0, false);
+            DumpSimOutput simOutput = new DumpSimOutput();
+            _instantCondition.computeBodyCoefficients(simInput, ref simOutput, true, false);
 
-            if (EditorDriver.editorFacility == EditorFacility.VAB)
-            {
-                forwardBody = Vector3.up;
-                upBody      = -Vector3.forward;
-            }
+            UnityEngine.Debug.LogWarning("AERODYNAMIC COEFFICIENTS : CA : "  + simOutput.Ca.ToString() +
+                                                                 "\n CN : "  + simOutput.Cn.ToString() +
+                                                                 "\n CY : "  + simOutput.Cy.ToString() +
+                                                                 "\n CMX : " + simOutput.Cmx.ToString() +
+                                                                 "\n CMY : " + simOutput.Cmy.ToString() +
+                                                                 "\n CMZ : " + simOutput.Cmz.ToString());
+        }
 
-            double mass = 0;
-            List<Part> partsList = EditorLogic.SortedShipList;
-            foreach (Part p in partsList)
-            {
-                if (FARAeroUtil.IsNonphysical(p))
-                    continue;
+        internal void arrowPlot(ArrowPointer velocityArrow)
+        {
+            float cosAlpha = (float)Math.Cos(alpha * Math.PI / 180);
+            float sinAlpha = (float)Math.Sin(alpha * Math.PI / 180);
 
-                double partMass = p.mass;
-                if (p.Resources.Count > 0)
-                    partMass += p.GetResourceMass();
+            float cosBeta = (float)Math.Cos(beta * Math.PI / 180);
+            float sinBeta = (float)Math.Sin(beta * Math.PI / 180);
 
-                // If you want to use GetModuleMass, you need to start from p.partInfo.mass, not p.mass
-                CoM += partMass * (Vector3d)p.transform.TransformPoint(p.CoMOffset);
-                mass += partMass;
-            }
-
-            CoM /= mass;
-
-            // Rodhern: The original reference directions (velocity, liftVector, sideways) did not form an orthonormal
-            //  basis. That in turn produced some counterintuitive calculation results, such as coupled yaw and pitch
-            //  derivatives. A more thorough discussion of the topic can be found on the KSP forums:
-            //  https://forum.kerbalspaceprogram.com/index.php?/topic/19321-131-ferram-aerospace-research-v01591-liepmann-4218/&do=findComment&comment=2781270
-            //  The reference directions have been replaced by new ones that are orthonormal by construction.
-            //  In dkavolis branch Vector3.Cross() and Vector3d.Normalize() are used explicitly. There is no apparent
-            //  benefit to this other than possibly improved readability.
-            float cosAlpha = (float)Math.Cos(input.alpha * Math.PI / 180);
-            float sinAlpha = (float)Math.Sin(input.alpha * Math.PI / 180);
-
-            float cosBeta = (float)Math.Cos(input.alpha * Math.PI / 180);
-            float sinBeta = (float)Math.Sin(input.alpha * Math.PI / 180);
-
-            Matrix4x4 RotationAoA = new Matrix4x4(new Vector4(1.0f, 0.0f,      0.0f,     0.0f),
-                                                  new Vector4(0.0f, cosAlpha, -sinAlpha, 0.0f),
-                                                  new Vector4(0.0f, sinAlpha,  cosAlpha, 0.0f),
-                                                  new Vector4(0.0f, 0.0f,      0.0f,     1.0f));
+            Matrix4x4 RotationAoA = new Matrix4x4(new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
+                                                  new Vector4(0.0f, cosAlpha, sinAlpha, 0.0f),
+                                                  new Vector4(0.0f, -sinAlpha, cosAlpha, 0.0f),
+                                                  new Vector4(0.0f, 0.0f, 0.0f, 1.0f));
 
             Matrix4x4 RotationBeta = new Matrix4x4(new Vector4(cosBeta,  0.0f, sinBeta, 0.0f),
                                                    new Vector4(0.0f,     1.0f, 0.0f,    0.0f),
                                                    new Vector4(-sinBeta, 0.0f, cosBeta, 0.0f),
-                                                   new Vector4(0.0f,     0.0f, 0.0f,    1.0f));
+                                                   new Vector4(0.0f,    0.0f,  0.0f,    1.0f));
 
             Matrix4x4 RBodyToWind = RotationBeta * RotationAoA;
 
-            Vector3d forwardWind = RBodyToWind.MultiplyVector(forwardBody);
-            Vector3d upWind      = RBodyToWind.MultiplyVector(upBody);
-            Vector3d rightWind   = RBodyToWind.MultiplyVector(rightBody);
+            Vector3d forwardWind = RBodyToWind.MultiplyVector(Vector3d.forward);
 
-            Vector3d velocityVector  = forwardWind;
-            Vector3d angularVelocity = new Vector3d(0.0f, 0.0f, 0.0f); // TODO : implement a non null angular velocity
-
-            foreach (FARWingAerodynamicModel w in _wingAerodynamicModel)
-            {
-                if (!(w && w.part))
-                    continue;
-
-                w.ComputeForceEditor(velocityVector, input.machNumber, 2);
-
-                if (clear)
-                    w.EditorClClear(reset_stall);
-
-                Vector3d relPos = w.GetAerodynamicCenter() - CoM;
-                Vector3d partVelocity = velocityVector + Vector3d.Cross(angularVelocity, relPos);
-
-                if (w is FARControllableSurface controllableSurface)
-                    controllableSurface.SetControlStateEditor(CoM,
-                                                              partVelocity,
-                                                              (float)input.pitchValue,
-                                                              (float)input.yawValue,
-                                                              (float)input.rollValue,
-                                                              input.flaps,
-                                                              input.spoilers);
-                else if (w.isShielded)
-                    continue;
-
-                Vector3d force = w.ComputeForceEditor(partVelocity.normalized, input.machNumber, 2) * 1000;
-
-                output.Cn += Vector3d.Dot(force, upBody);
-                output.Cy += Vector3d.Dot(force, rightBody);
-                output.Ca += Vector3d.Dot(force, forwardBody);
-
-                Vector3d moment = -Vector3d.Cross(relPos, force);
-
-                output.Cmy += Vector3d.Dot(moment, rightBody);
-                output.Cmz += Vector3d.Dot(moment, upBody);
-                output.Cmx += Vector3d.Dot(moment, forwardBody);
-
-                area += w.S;
-                MAC  += w.GetMAC() * w.S;
-                b_2  += w.Getb_2() * w.S;
-            }
-
-            var center = new FARCenterQuery();
-            foreach (FARAeroSection aeroSection in _currentAeroSections)
-                aeroSection.PredictionCalculateAeroForces(2,
-                                                          (float)input.machNumber,
-                                                          10000,
-                                                          0,
-                                                          0.005f,
-                                                          velocityVector.normalized,
-                                                          center);
-
-            Vector3d centerForce = center.force * 1000;
-
-            output.Cn += -Vector3d.Dot(centerForce, upBody);
-            output.Cy +=  Vector3d.Dot(centerForce,  rightBody);
-            output.Ca += -Vector3d.Dot(centerForce, forwardBody);
-
-            Vector3d centerMoment = -center.TorqueAt(CoM) * 1000;
-
-            output.Cmy += Vector3d.Dot(centerMoment, rightBody);
-            output.Cmz += Vector3d.Dot(centerMoment, upBody);
-            output.Cmx += Vector3d.Dot(centerMoment, forwardBody);
-
-            if (area.NearlyEqual(0))
-            {
-                area = _maxCrossSectionFromBody;
-                b_2 = 1;
-                MAC = _bodyLength;
-            }
-
-            double recipArea = 1 / area;
-
-            MAC        *= recipArea;
-            b_2        *= recipArea;
-            output.Cn  *= recipArea;
-            output.Cy  *= recipArea;
-            output.Ca  *= recipArea;
-            output.Cmy *= recipArea / MAC; // FIXME : Adim is fucked up
-            output.Cmz *= recipArea / MAC;
-            output.Cmx *= recipArea / MAC;
-        }
-
-        public void SetState(double machNumber, double Cl, Vector3d CoM, double pitch, int flapSetting, bool spoilers)
-        {
-            iterationInput.machNumber = machNumber;
-            neededCl = Cl;
-            iterationInput.pitchValue = pitch;
-            iterationInput.flaps = flapSetting;
-            iterationInput.spoilers = spoilers;
-            iterationInput.beta = 0;
-
-            foreach (FARWingAerodynamicModel w in _wingAerodynamicModel)
-            {
-                if (w.isShielded)
-                    continue;
-
-                if (w is FARControllableSurface controllableSurface)
-                    controllableSurface.SetControlStateEditor(CoM,
-                                                              Vector3.up,
-                                                              (float)pitch,
-                                                              0,
-                                                              0,
-                                                              flapSetting,
-                                                              spoilers);
-            }
+            velocityArrow.Direction = forwardWind;
         }
     }
 }
