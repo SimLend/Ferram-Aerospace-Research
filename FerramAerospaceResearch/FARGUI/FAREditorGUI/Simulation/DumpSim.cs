@@ -124,7 +124,10 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
                                                                  "\n CY : "  + simOutput.Cy.ToString() +
                                                                  "\n CMX : " + simOutput.Cmx.ToString() +
                                                                  "\n CMY : " + simOutput.Cmy.ToString() +
-                                                                 "\n CMZ : " + simOutput.Cmz.ToString());
+                                                                 "\n CMZ : " + simOutput.Cmz.ToString() +
+                                                                 "\n COGX : " + simOutput.PosCoG.x +
+                                                                 "\n COGY : " + simOutput.PosCoG.y +
+                                                                 "\n COGZ : " + simOutput.PosCoG.z);
         }
 
         internal void arrowPlot(ArrowPointer velocityArrow)
@@ -145,7 +148,7 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
                                                    new Vector4(-sinBeta, 0.0f, cosBeta, 0.0f),
                                                    new Vector4(0.0f,    0.0f,  0.0f,    1.0f));
 
-            Matrix4x4 RBodyToWind = RotationBeta * RotationAoA;
+            Matrix4x4 RBodyToWind = RotationAoA * RotationBeta;
 
             Vector3d forwardWind = RBodyToWind.MultiplyVector(Vector3d.forward);
 

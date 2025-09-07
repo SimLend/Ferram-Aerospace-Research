@@ -46,6 +46,11 @@ namespace FerramAerospaceResearch.FARGUI.FAREditorGUI.Simulation
 {
     internal struct DumpSimOutput
     {
+        public double   Sref;
+        public double   SpanRef;
+        public double   ChordRef;
+        public Vector3d PosCoG;
+
         public double Ca;
         public double Cn;
         public double Cy;
